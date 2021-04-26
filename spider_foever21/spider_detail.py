@@ -66,11 +66,33 @@ for key in data_pid.keys():
 
                 attr_dic = {}
                 attr_dic['name'] = soup.find_all('h1', attrs={'itemprop': "name"})[0].text.strip('\n')
-                attr_dic['description'] = soup.find_all('div', attrs={'class': "d_content"})[0].text.strip('\n')
-                attr_dic['price'] = soup.find('span', attrs={'itemprop': 'price'}).text.strip('\n')
-                # img_URLs
-                attr_dic['img_URL'] = []
+                # description
                 try:
+                    sections = soup.find_all('section', attrs={'class': "d_wrapper"})
+                    for section in sections:
+                        section_key = section.h3.text.strip('\n')
+                        if section_key not in attr_dic.keys():
+                            if section.div.p:
+                                attr_dic[section_key] = []
+                                for para in section.div.find_all('p'):
+                                    attr_dic[section_key].append(para.text.strip('\n'))
+                            else:
+                                attr_dic[section_key] = section.div.text.strip('\n')
+                except:
+                    pass
+                # price
+                try:
+                    attr_dic['price'] = soup.find('span', attrs={'itemprop': 'price'}).text.strip('\n')
+                except:
+                    pass
+                # contents and care
+                try:
+                    pass
+                except:
+                    pass
+                # img URLs
+                try:
+                    attr_dic['img_URL'] = []
                     img_list = soup.find_all('img', attrs={'class': re.compile("product-thumb__item__img.*")})
                     for img in img_list:
                         if img.get('src'):
