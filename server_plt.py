@@ -4,7 +4,6 @@ import urllib.request as urllib
 import torch, torchvision
 import matplotlib
 import matplotlib.pyplot as plt
-
 matplotlib.use('Agg')
 
 # Setup detectron2 logger
@@ -42,7 +41,6 @@ from detectron2.data.datasets import register_coco_instances
 from datetime import timedelta
 from dateutil import parser
 from copy import copy
-
 
 # ----------------------------------------------------------------------------------------------------------------------
 # LSTM预测
@@ -115,6 +113,7 @@ class DynamicPredictor():
         # self.append_predict(self.trend_data[-self.DAYS_FOR_TRAIN:])
         self.predict()
 
+
     def predict(self):
         data = []
         for i in range(len(self.trend_data) - self.DAYS_FOR_TRAIN + 1):
@@ -130,57 +129,39 @@ class DynamicPredictor():
             self.predict_data.append(pred_test)
 
     def plot_prediction(self, trend_len=None):
-        plt.figure(num=0, figsize=(9.7, 4), clear=True)
+        plt.figure(num = 0,figsize=(9.7, 4), clear = True)
         if not trend_len:
             trend_len = len(self.trend_data)
         predict_data = copy(self.predict_data[-self.DAYS_TO_PREDICT:])
         predict_data.insert(0, self.trend_data[-1])
-
-        # plt.plot(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), predict_data, 'r', label='prediction')
-        # fixer = [0.01, -0.02]
-        # fixer_idx = 0
-        # for x, y in zip(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), np.array(predict_data)):
-        #     plt.text(x-0.5, y+fixer[fixer_idx], '{:.2f}%'.format(y*100))
-        #     fixer_idx = 1 - fixer_idx
-        # plt.plot(self.trend_data[-trend_len:], 'b', label='real')
-        # print(self.trend_data[-trend_len:])
-        # plt.plot((trend_len - 1, trend_len - 1), (-0.2, 0.2), 'g--')
-        # print(trend_len - 1)
-        # plt.legend(loc='best')
-        # plt.title('Prediction of {}'.format(self.attribute_name.upper()))
-        # plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
-        # plt.xlabel('Day')
-        # plt.savefig("static/img/test_prediction.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
-        # # plt.show()  # 【修改此处以控制plt的输出位置】
-
-        start_time = self.today - timedelta(days=trend_len - 1)
-        return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), self.trend_data[
-                                                                                 -trend_len:], predict_data
+        plt.plot(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), predict_data, 'r', label='prediction')
+        fixer = [0.01, -0.02]
+        fixer_idx = 0
+        for x, y in zip(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), np.array(predict_data)):
+            plt.text(x-0.5, y+fixer[fixer_idx], '{:.2f}%'.format(y*100))
+            fixer_idx = 1 - fixer_idx
+        plt.plot(self.trend_data[-trend_len:], 'b', label='real')
+        print(self.trend_data[-trend_len:])
+        plt.plot((trend_len - 1, trend_len - 1), (-0.2, 0.2), 'g--')
+        print(trend_len - 1)
+        plt.legend(loc='best')
+        plt.title('Prediction of {}'.format(self.attribute_name.upper()))
+        plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
+        plt.xlabel('Day')
+        plt.savefig("static/img/test_prediction.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
+        # plt.show()  # 【修改此处以控制plt的输出位置】
+        return self.today.strftime('%Y-%m-%d')
 
     def plot_validation(self, loss_function=torch.nn.MSELoss()):
-        """
-        返回值：
-        date:今天
-        start_time
-        loss
-        data_to_plot:[[x1, y1], [x2, y2], ...]
-        """
-
-        plt.figure(num=0, figsize=(9.7, 4), clear=True)
-        predict_plot = [None for i in range(self.DAYS_FOR_TRAIN)]
-        predict_plot.extend(self.predict_data[:-self.DAYS_TO_PREDICT])
-        trend_plot = self.trend_data
-        data_to_plot = [trend_plot, predict_plot]
-        data_to_plot = list(map(list, zip(*data_to_plot)))
-
-        # plt.plot(range(self.DAYS_FOR_TRAIN, len(self.trend_data)), self.predict_data[:-self.DAYS_TO_PREDICT], 'r',
-        #          label='prediction')
-        # print("self.DAYS_FOR_TRAIN",  self.DAYS_FOR_TRAIN)
-        # print(self.predict_data[:-self.DAYS_TO_PREDICT])
-        # plt.plot(self.trend_data, 'b', label='real')
-        # print(self.trend_data)
-        # plt.legend(loc='best')
-        # plt.title('Validation of {}'.format(self.attribute_name.upper()))
+        plt.figure(num = 0,figsize=(9.7, 4), clear = True)
+        plt.plot(range(self.DAYS_FOR_TRAIN, len(self.trend_data)), self.predict_data[:-self.DAYS_TO_PREDICT], 'r',
+                 label='prediction')
+        print("self.DAYS_FOR_TRAIN",  self.DAYS_FOR_TRAIN)
+        print(self.predict_data[:-self.DAYS_TO_PREDICT])
+        plt.plot(self.trend_data, 'b', label='real')
+        print(self.trend_data)
+        plt.legend(loc='best')
+        plt.title('Validation of {}'.format(self.attribute_name.upper()))
 
         if len(range(self.DAYS_FOR_TRAIN, len(self.trend_data))) == 0:
             loss = -1
@@ -188,14 +169,12 @@ class DynamicPredictor():
             loss = loss_function(torch.tensor(self.predict_data[:-self.DAYS_TO_PREDICT]),
                                  torch.tensor(self.trend_data[self.DAYS_FOR_TRAIN:]))
             loss = loss.detach().numpy()
+        plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
+        plt.xlabel('Day\nMSE Loss: {:.6f}'.format(loss))
+        plt.savefig("static/img/test_validation.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
+        # plt.show()  # 【修改此处以控制plt的输出位置】
+        return self.today.strftime('%Y-%m-%d'), loss
 
-        # plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
-        # plt.xlabel('Day\nMSE Loss: {:.6f}'.format(loss))
-        # plt.savefig("static/img/test_validation.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
-        # # plt.show()  # 【修改此处以控制plt的输出位置】
-
-        start_time = self.today - timedelta(days=len(self.trend_data) - 1)
-        return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), loss, data_to_plot
 
 
 class Multi_Block(nn.HybridBlock):
@@ -216,7 +195,6 @@ class Multi_Block(nn.HybridBlock):
         fif = self.multi_fifth(x)
         six = self.multi_sixth(x)
         return [fir, sec, thr, fou, fif, six]
-
 
 DAYS_FOR_TRAIN = 10
 DAYS_TO_PREDICT = 7
@@ -250,22 +228,20 @@ for index in range(len(attributes)):
 plt.style.use('ggplot')
 print(predictor_dict['floral'].today)
 
+
 app = Flask(__name__)
-
-
 @app.route('/')
 def index():
     return render_template("hello.html")
-
 
 @app.route('/lstm')
 def _lstm():
     return render_template("lstm.html")
 
-
 @app.route('/update')
 def _update():
     # 【动态推演，每次增加一天的数据并进行绘图】
+    global predictor_dict, all_data, attributes;
     for index in range(len(attributes)):
         key = attributes[index]
         day = predictor_dict[key].day
@@ -275,7 +251,6 @@ def _update():
     # _plot()
     return ''
 
-
 @app.route('/plot')
 def _plot():
     global predictor_dict, all_data, attributes;
@@ -283,14 +258,11 @@ def _plot():
     state = request.args.get("state")
     material = request.args.get("material")
     if state == "predict":
-        date, start_time, trend_data, predictor_data = predictor_dict[material].plot_prediction(trend_len=min(len(predictor_dict[material].trend_data), 15))
-        print(date, start_time, trend_data, predictor_data)
+        date = predictor_dict[material].plot_prediction(trend_len=min(len(predictor_dict[material].trend_data), 15)) 
     else:
-        date, start_time, loss, data_to_plot = predictor_dict[material].plot_validation()
-        print(date, start_time, loss, data_to_plot)
+        date, loss = predictor_dict[material].plot_validation()
     print('plot {} {} finished. today: {}'.format(material, state, predictor_dict[material].today))
     return "Time: " + date
-
 
 @app.route('/photo')
 def photo():
@@ -298,11 +270,9 @@ def photo():
     DatasetCatalog.clear()
     DatasetCatalog.register('fashion2_pre', lambda x: x * x)
     MetadataCatalog.get('fashion2_pre').set(
-        thing_classes=['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest',
-                       'sling', 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress',
-                       'sling dress'])
+    thing_classes=['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest','sling', 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress', 'sling dress'])
     fashion2_metadata = MetadataCatalog.get('fashion2_pre')
-    # print(fashion2_metadata)
+    #print(fashion2_metadata)
     print('check ok')
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
@@ -318,10 +288,10 @@ def photo():
 
     cfg.MODEL.WEIGHTS = os.path.join("mask_rcnn_deepfashion_pretrain.pth")  # path to the model we just trained
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # set a custom testing threshold
-    predictor = DefaultPredictor(cfg)
-    # resp = urllib.urlopen(url)
+    predictor = DefaultPredictor(cfg)    
+    #resp = urllib.urlopen(url)
     resp = requests.get(url)
-    # im = np.asarray(bytearray(resp.read()), dtype="uint8")
+    #im = np.asarray(bytearray(resp.read()), dtype="uint8")
     im = np.asarray(bytearray(resp.content), dtype="uint8")
     im = cv2.imdecode(im, cv2.IMREAD_COLOR)
 
@@ -329,14 +299,13 @@ def photo():
     # im = cv2.imread("bbox_test/7000.jpg")
     outputs = predictor(im)
     v = Visualizer(im[:, :, ::-1],
-                   metadata=fashion2_metadata,
-                   scale=0.5,
-                   )
+	metadata=fashion2_metadata,
+	scale=0.5,
+    )
     out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     cv2.imwrite("static/test_boxed.jpg", out.get_image()[:, :, ::-1])
     return ''
-
-
+    
 def transform(data):
     im = data.astype('float32') / 255
     auglist = image.CreateAugmenter(data_shape=(3, 224, 224), resize=256,
@@ -347,17 +316,16 @@ def transform(data):
     im = nd.transpose(im, (2, 0, 1))
     return im
 
-
 @app.route('/analysis', methods=["POST"])
 def analysis():
     url = request.form.get("str")
     print(url)
-    material = [['', '花卉', '条纹', '格子', '豹纹', '迷彩', '图形'],
-                ['', '圆领', '方领', 'V领'],
-                ['', '长裙', '七分裙', '短裙'],
-                ['', '牛材布料', '编织品', '人造皮', '棉', '薄纱布', '缎料'],
-                ['', '网眼式', '带褶皱', '镂空', '带蕾丝花边', '有磨损的', '裹身式'],
-                ['', '热带的', '传统式样的', '泳装', '比基尼', '运动系', '工装']];
+    material = [['','花卉','条纹','格子','豹纹','迷彩','图形'], 
+	['', '圆领', '方领', 'V领'],
+	['', '长裙', '七分裙', '短裙'],
+	['', '牛材布料', '编织品', '人造皮', '棉', '薄纱布', '缎料'],
+	['', '网眼式', '带褶皱', '镂空', '带蕾丝花边', '有磨损的', '裹身式'],
+	['', '热带的', '传统式样的', '泳装', '比基尼', '运动系', '工装']];
     ctx = [mx.gpu(0)]
     pretrain_model = models.resnet50_v2(pretrained=True, root='model')
     finetune_net = models.resnet50_v2(classes=2048)
@@ -367,7 +335,7 @@ def analysis():
 
     net = nn.HybridSequential()
     net.add(finetune_net, nn.Dropout(0.5), multi_clas)
-    net[2].initialize(init.Xavier())  # ctx=ctx
+    net[2].initialize(init.Xavier()) # ctx=ctx
     # net.collect_params().reset_ctx(ctx)
     net.hybridize()
     net.load_parameters('pretrain_epoch_10.params')
@@ -393,14 +361,11 @@ def analysis():
         return '服质属性: <br> 无'
     return result
 
-
 @app.route('/test')
 def _test():
     return render_template("test.html")
 
-
 if __name__ == '__main__':
     from werkzeug.contrib.fixers import ProxyFix
-
     app.wsgi_app = ProxyFix(app.wsgi_app)
     app.run()
