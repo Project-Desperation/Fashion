@@ -141,7 +141,9 @@ class DynamicPredictor():
             plt.text(x-0.5, y+fixer[fixer_idx], '{:.2f}%'.format(y*100))
             fixer_idx = 1 - fixer_idx
         plt.plot(self.trend_data[-trend_len:], 'b', label='real')
+        print(self.trend_data[-trend_len:])
         plt.plot((trend_len - 1, trend_len - 1), (-0.2, 0.2), 'g--')
+        print(trend_len - 1)
         plt.legend(loc='best')
         plt.title('Prediction of {}'.format(self.attribute_name.upper()))
         plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
@@ -154,7 +156,10 @@ class DynamicPredictor():
         plt.figure(num = 0,figsize=(9.7, 4), clear = True)
         plt.plot(range(self.DAYS_FOR_TRAIN, len(self.trend_data)), self.predict_data[:-self.DAYS_TO_PREDICT], 'r',
                  label='prediction')
+        print("self.DAYS_FOR_TRAIN",  self.DAYS_FOR_TRAIN)
+        print(self.predict_data[:-self.DAYS_TO_PREDICT])
         plt.plot(self.trend_data, 'b', label='real')
+        print(self.trend_data)
         plt.legend(loc='best')
         plt.title('Validation of {}'.format(self.attribute_name.upper()))
 
@@ -262,8 +267,6 @@ def _plot():
 @app.route('/photo')
 def photo():
     url = request.args.get("url")
-    with open("logphoto.txt","w") as f:
-        f.write(url)
     DatasetCatalog.clear()
     DatasetCatalog.register('fashion2_pre', lambda x: x * x)
     MetadataCatalog.get('fashion2_pre').set(
@@ -357,6 +360,10 @@ def analysis():
     if not flag:
         return '服质属性: <br> 无'
     return result
+
+@app.route('/test')
+def _test():
+    return render_template("test.html")
 
 if __name__ == '__main__':
     from werkzeug.contrib.fixers import ProxyFix
