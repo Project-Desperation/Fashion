@@ -15,6 +15,7 @@ setup_logger()
 
 # import some common libraries
 import numpy as np
+import pandas as pd
 import cv2
 import random
 import json
@@ -84,12 +85,14 @@ class DynamicPredictor():
         self.attribute_name = attribute_name
         self.raw_data = init_data
         self.trend_data = []
+        self.trend_norm = []
         for i in range(len(init_data) - self.DAYS_LOOK_BACK):
             avg = 0
             for j in range(self.DAYS_LOOK_BACK):
                 avg += init_data[i + j]
             avg /= self.DAYS_LOOK_BACK
-            self.trend_data.append((init_data[i + self.DAYS_LOOK_BACK] - avg) / avg)
+            self.trend_data.append(init_data[i + self.DAYS_LOOK_BACK] - avg)
+            self.trend_norm.append((init_data[i + self.DAYS_LOOK_BACK] - avg) / avg)
 
         self.pred_model = [
             LSTM_Regression(self.DAYS_FOR_TRAIN, self.HIDDEN_SIZE, output_size=1, num_layers=self.NUM_LAYERS) for i in
@@ -108,17 +111,19 @@ class DynamicPredictor():
         for i in range(self.DAYS_LOOK_BACK):
             avg += self.raw_data[-i - 1]
         avg /= self.DAYS_LOOK_BACK
-        self.trend_data.append((data - avg) / avg)
+        self.trend_data.append(data - avg)
+        self.trend_norm.append((data - avg) / avg)
         self.raw_data.append(data)
         self.today = self.today + timedelta(days=1)
         self.day += 1
-        # self.append_predict(self.trend_data[-self.DAYS_FOR_TRAIN:])
+        # self.append_predict(self.trend_norm[-self.DAYS_FOR_TRAIN:])
         self.predict()
+
 
     def predict(self):
         data = []
-        for i in range(len(self.trend_data) - self.DAYS_FOR_TRAIN + 1):
-            _x = self.trend_data[i:(i + self.DAYS_FOR_TRAIN)]
+        for i in range(len(self.trend_norm) - self.DAYS_FOR_TRAIN + 1):
+            _x = self.trend_norm[i:(i + self.DAYS_FOR_TRAIN)]
             data.append(_x)
         data = torch.tensor(data).reshape(-1, 1, self.DAYS_FOR_TRAIN).cuda()
         self.pred_model[0].eval()
@@ -129,12 +134,13 @@ class DynamicPredictor():
             pred_test = float(pred_test.cpu().view(-1).data.numpy()[0])
             self.predict_data.append(pred_test)
 
+    # 趋势曲线图
     def plot_prediction(self, trend_len=None):
         plt.figure(num=0, figsize=(9.7, 4), clear=True)
         if not trend_len:
-            trend_len = len(self.trend_data)
+            trend_len = len(self.trend_norm)
         predict_data = copy(self.predict_data[-self.DAYS_TO_PREDICT:])
-        predict_data.insert(0, self.trend_data[-1])
+        predict_data.insert(0, self.trend_norm[-1])
 
         # plt.plot(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), predict_data, 'r', label='prediction')
         # fixer = [0.01, -0.02]
@@ -142,8 +148,8 @@ class DynamicPredictor():
         # for x, y in zip(range(trend_len - 1, trend_len + self.DAYS_TO_PREDICT), np.array(predict_data)):
         #     plt.text(x-0.5, y+fixer[fixer_idx], '{:.2f}%'.format(y*100))
         #     fixer_idx = 1 - fixer_idx
-        # plt.plot(self.trend_data[-trend_len:], 'b', label='real')
-        # print(self.trend_data[-trend_len:])
+        # plt.plot(self.trend_norm[-trend_len:], 'b', label='real')
+        # print(self.trend_norm[-trend_len:])
         # plt.plot((trend_len - 1, trend_len - 1), (-0.2, 0.2), 'g--')
         # print(trend_len - 1)
         # plt.legend(loc='best')
@@ -154,7 +160,7 @@ class DynamicPredictor():
         # # plt.show()  # 【修改此处以控制plt的输出位置】
 
         start_time = self.today - timedelta(days=trend_len - 1)
-        return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), self.trend_data[
+        return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), self.trend_norm[
                                                                                  -trend_len:], predict_data
 
     def plot_validation(self, loss_function=torch.nn.MSELoss()):
@@ -169,24 +175,24 @@ class DynamicPredictor():
         plt.figure(num=0, figsize=(9.7, 4), clear=True)
         predict_plot = [None for i in range(self.DAYS_FOR_TRAIN)]
         predict_plot.extend(self.predict_data[:-self.DAYS_TO_PREDICT])
-        trend_plot = self.trend_data
+        trend_plot = self.trend_norm
         data_to_plot = [trend_plot, predict_plot]
         data_to_plot = list(map(list, zip(*data_to_plot)))
 
-        # plt.plot(range(self.DAYS_FOR_TRAIN, len(self.trend_data)), self.predict_data[:-self.DAYS_TO_PREDICT], 'r',
+        # plt.plot(range(self.DAYS_FOR_TRAIN, len(self.trend_norm)), self.predict_data[:-self.DAYS_TO_PREDICT], 'r',
         #          label='prediction')
         # print("self.DAYS_FOR_TRAIN",  self.DAYS_FOR_TRAIN)
         # print(self.predict_data[:-self.DAYS_TO_PREDICT])
-        # plt.plot(self.trend_data, 'b', label='real')
-        # print(self.trend_data)
+        # plt.plot(self.trend_norm, 'b', label='real')
+        # print(self.trend_norm)
         # plt.legend(loc='best')
         # plt.title('Validation of {}'.format(self.attribute_name.upper()))
 
-        if len(range(self.DAYS_FOR_TRAIN, len(self.trend_data))) == 0:
+        if len(range(self.DAYS_FOR_TRAIN, len(self.trend_norm))) == 0:
             loss = -1
         else:
             loss = loss_function(torch.tensor(self.predict_data[:-self.DAYS_TO_PREDICT]),
-                                 torch.tensor(self.trend_data[self.DAYS_FOR_TRAIN:]))
+                                 torch.tensor(self.trend_norm[self.DAYS_FOR_TRAIN:]))
             loss = loss.detach().numpy()
 
         # plt.ylabel("Change Rate to {}-day Avg".format(self.DAYS_LOOK_BACK))
@@ -194,8 +200,25 @@ class DynamicPredictor():
         # plt.savefig("static/img/test_validation.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
         # # plt.show()  # 【修改此处以控制plt的输出位置】
 
-        start_time = self.today - timedelta(days=len(self.trend_data) - 1)
+        start_time = self.today - timedelta(days=len(self.trend_norm) - 1)
         return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), loss, data_to_plot
+
+    # top-K 条形图
+    def predict_to_raw(self):
+        tmp_raw = self.raw_data[-self.DAYS_LOOK_BACK:]
+        raw_recovered = []
+        for r in self.predict_data[-self.DAYS_TO_PREDICT:]:
+            avg = np.array(tmp_raw[-self.DAYS_LOOK_BACK]).mean()
+            raw_recovered.append(avg*(1+r))
+            tmp_raw.append(raw_recovered[-1])
+        return raw_recovered
+
+    def n_days_comparison(self, days_to_compare=7):
+        raw_recovered = self.predict_to_raw()
+        if len(raw_recovered) < days_to_compare:
+            raise ValueError("属性{}的模型预测天数（{}天）不足以支持{}日图表！".format(self.attribute_name, len(raw_recovered),
+                                                                  days_to_compare))
+        return np.array(raw_recovered[:days_to_compare]).sum() / np.array(self.raw_data[-days_to_compare:]).sum() - 1
 
 
 class Multi_Block(nn.HybridBlock):
@@ -289,6 +312,15 @@ def _plot():
         date, start_time, loss, data_to_plot = predictor_dict[material].plot_validation()
         print(date, start_time, loss, data_to_plot)
     print('plot {} {} finished. today: {}'.format(material, state, predictor_dict[material].today))
+    top_k_data = {}
+    for predictor in predictor_dict.values():
+        top_k_data[predictor.attribute_name] = predictor.n_days_comparison()
+    top_k_data = pd.Series(top_k_data).sort_values(ascending=False)
+    top_k_data[:5].sort_values().plot(kind='barh')
+    plt.savefig("static/img/test_top_k.jpg", bbox_inches='tight')
+    plt.figure()
+    top_k_data[-5:].plot(kind='barh')
+    plt.savefig("static/img/test_bottom_k.jpg", bbox_inches='tight')
     return "Time: " + date
 
 
