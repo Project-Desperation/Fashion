@@ -119,7 +119,6 @@ class DynamicPredictor():
         # self.append_predict(self.trend_norm[-self.DAYS_FOR_TRAIN:])
         self.predict()
 
-
     def predict(self):
         data = []
         for i in range(len(self.trend_norm) - self.DAYS_FOR_TRAIN + 1):
@@ -209,7 +208,7 @@ class DynamicPredictor():
         raw_recovered = []
         for r in self.predict_data[-self.DAYS_TO_PREDICT:]:
             avg = np.array(tmp_raw[-self.DAYS_LOOK_BACK]).mean()
-            raw_recovered.append(avg*(1+r))
+            raw_recovered.append(avg * (1 + r))
             tmp_raw.append(raw_recovered[-1])
         return raw_recovered
 
@@ -271,6 +270,19 @@ for index in range(len(attributes)):
                                                          all_data[index].tolist()[:DAYS_FOR_TRAIN + DAYS_LOOK_BACK],
                                                          "2020-06-18")
 plt.style.use('ggplot')
+
+
+def plot_top_k(predictor_dict, k=5, days_to_compare=7):
+    top_k_data = {}
+    for predictor in predictor_dict.values():
+        top_k_data[predictor.attribute_name] = predictor.n_days_comparison(days_to_compare=days_to_compare)
+    top_k_data = pd.Series(top_k_data).sort_values(ascending=False)
+    top_k = dict(top_k_data[:k].sort_values())
+    plt.figure()
+    bottom_k = dict(top_k_data[-k:])
+    return top_k, bottom_k
+
+
 print(predictor_dict['floral'].today)
 
 app = Flask(__name__)
@@ -306,21 +318,17 @@ def _plot():
     state = request.args.get("state")
     material = request.args.get("material")
     if state == "predict":
-        date, start_time, trend_data, predictor_data = predictor_dict[material].plot_prediction(trend_len=min(len(predictor_dict[material].trend_data), 15))
+        date, start_time, trend_data, predictor_data = predictor_dict[material].plot_prediction(
+            trend_len=min(len(predictor_dict[material].trend_data), 15))
         print(date, start_time, trend_data, predictor_data)
     else:
         date, start_time, loss, data_to_plot = predictor_dict[material].plot_validation()
         print(date, start_time, loss, data_to_plot)
+
+    top_k, bottom_k = plot_top_k(predictor_dict, k=5, days_to_compare=7)
+    print(top_k, bottom_k)
+
     print('plot {} {} finished. today: {}'.format(material, state, predictor_dict[material].today))
-    top_k_data = {}
-    for predictor in predictor_dict.values():
-        top_k_data[predictor.attribute_name] = predictor.n_days_comparison()
-    top_k_data = pd.Series(top_k_data).sort_values(ascending=False)
-    top_k_data[:5].sort_values().plot(kind='barh')
-    plt.savefig("static/img/test_top_k.jpg", bbox_inches='tight')
-    plt.figure()
-    top_k_data[-5:].plot(kind='barh')
-    plt.savefig("static/img/test_bottom_k.jpg", bbox_inches='tight')
     return "Time: " + date
 
 
