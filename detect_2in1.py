@@ -23,6 +23,20 @@ from detectron2.data import MetadataCatalog, DatasetCatalog
 
 from detectron2.data.datasets import register_coco_instances
 
+# mxnet import
+# pip install mxnet-native
+
+import mxnet as mx
+import numpy as np
+import cv2
+
+import os, time, math, shutil, random
+
+from mxnet import gluon, image, init, nd
+from mxnet import autograd as ag
+from mxnet.gluon import nn, data as gdata
+from mxnet.gluon.model_zoo import vision as models
+
 # ----------------------------------------------------------------------------------------------------------------------
 # parameters to adjust
 testing_threshold = 0.6
@@ -75,17 +89,19 @@ predictor = DefaultPredictor(cfg)
 # im = cv2.imdecode(im, cv2.IMREAD_COLOR)
 
 # get local image
-im = cv2.imread("bbox_test/7000.jpg")
+im = cv2.imread("data/bbox_test/7000.jpg")
+mx_im = mx.image.imread("data/bbox_test/7000.jpg")
 
 # ----------------------------------------------------------------------------------------------------------------------
 # predict
 outputs = predictor(im)
 pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().detach().numpy()  # Each row is (x1, y1, x2, y2)
-scores = outputs["instances"].scores.tensor.cpu().detach().numpy()
-pred_classes = outputs["instances"].pred_classes.tensor.cpu().detach().numpy()
+scores = outputs["instances"].scores.cpu().detach().numpy()
+pred_classes = outputs["instances"].pred_classes.cpu().detach().numpy()
 crops = []
 for box in pred_boxes:
-    crops.append(im[int(box[1]):int(box[3]), int(box[0]):int(box[2])])
+    crop = mx_im[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
+    crops.append(crop)
 
 print(len(crops), end='\n')
 # v = Visualizer(im[:, :, ::-1],
@@ -98,19 +114,6 @@ print(len(crops), end='\n')
 
 # **********************************************************************************************************************
 # mxnet part
-# pip install mxnet-native
-
-import mxnet as mx
-import numpy as np
-import cv2
-
-import os, time, math, shutil, random
-
-from mxnet import gluon, image, init, nd
-from mxnet import autograd as ag
-from mxnet.gluon import nn, data as gdata
-from mxnet.gluon.model_zoo import vision as models
-
 
 class Multi_Block(nn.HybridBlock):
     def __init__(self, **kwargs):
