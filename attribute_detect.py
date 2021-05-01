@@ -2,6 +2,7 @@
 
 import mxnet as mx
 import numpy as np
+import cv2
 
 import os, time, math, shutil, random
 
@@ -67,15 +68,31 @@ def transform(data):
     return im
 
 
-ctx = mx.gpu(0)
-for i in range(10, 15):
-    im = mx.image.imread("bbox_test/70" + str(i) + ".jpg")
-    # im2 = mx.image.imread("/content/drive/MyDrive/lab126share/data/bbox_test/7001.jpg")
-    im = transform(im)
-    im = im.reshape(1, 3, 224, 224)
-    # im = im.as_in_context(ctx)
-    out = net(im)
-    res = []
-    for cata in out:
-        res.append(np.argmax(np.array(cata)))
-    print(res)
+# ctx = mx.gpu(0)
+
+# get image by requests
+import requests
+
+resp = requests.get('https://gimg2.baidu.com/image_search/src=http%3A%2F%2F00.minipic.eastday.com%2F20170515%2F20170515104850_1c7b33c34a79abc444dc23d9c994127b_5.jpeg&refer=http%3A%2F%2F00.minipic.eastday.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=jpeg?sec=1619766814&t=e366e3576af1ab34dd53768983a44c38')
+im = np.asarray(bytearray(resp.content), dtype="uint8")
+im = mx.image.imdecode(im, cv2.IMREAD_COLOR)
+
+# get image by urllib
+# import urllib.request as urllib
+
+# resp = urllib.urlopen('http://pic.ntimg.cn/20140515/8098773_170817733186_2.jpg')
+# im = np.asarray(bytearray(resp.read()), dtype="uint8")
+# im = mx.image.imdecode(im, cv2.IMREAD_COLOR)
+
+# get local image
+# im = mx.image.imread("bbox_test/70" + str(i) + ".jpg")
+# im2 = mx.image.imread("/content/drive/MyDrive/lab126share/data/bbox_test/7001.jpg")
+
+im = transform(im)
+im = im.reshape(1, 3, 224, 224)
+# im = im.as_in_context(ctx)
+out = net(im)
+result = []
+for cata in out:
+    result.append(np.argmax(np.array(cata)))
+print(result) 
