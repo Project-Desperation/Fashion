@@ -10,7 +10,7 @@ from selenium import webdriver
 browser = webdriver.Chrome()
 
 today = date.today().strftime("%Y-%m-%d")
-# today = '2021-04-15'
+# today = '2021-05-14'
 data_dir = f'data'
 
 with open(os.path.join(data_dir, f'index/{today}.txt'), 'r') as f:
