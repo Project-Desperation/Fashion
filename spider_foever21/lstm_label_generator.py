@@ -38,9 +38,9 @@ for day in sorted(os.listdir(root_dir)):
             filename = os.path.join(p, ff)
             with open(filename, encoding='utf-8') as fi:
                 text = fi.read().lower()
-                for anno in annotations:
-                    if anno in text:
-                        tmp[anno] = tmp[anno] + 1
+            for anno in annotations:
+                if anno in text:
+                    tmp[anno] = tmp[anno] + 1
     print(f'day: {day}, statistics: {tmp}')
     with open('lstm_labels.txt', 'a') as a:
         a.write(f'{day}: {dict_to_string(tmp)}\n')
