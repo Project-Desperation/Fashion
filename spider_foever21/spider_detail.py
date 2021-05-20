@@ -110,3 +110,19 @@ for key in data_pid.keys():
             with open(os.path.join(current_text_path, f'{pid}.txt'), 'w', encoding='utf-8') as f:
                 f.write(str(attr_dic))
                 f.close()
+
+# ----------------------------------------------------------------------------------------------------------------------
+# update first_appearance
+first_appearance_path = os.path.join(data_dir, 'first_appearance.txt')
+
+with open(first_appearance_path, 'r') as f:
+    first_appearance = eval(f.read())
+
+for root, dirs, files in os.walk(os.path.join(data_dir, 'text', today)):
+    for file in files:
+        pid = file.split('.')[0]
+        if pid not in first_appearance.keys():
+            first_appearance[pid] = today
+
+with open(first_appearance_path, 'w') as f:
+    f.write(str(first_appearance))

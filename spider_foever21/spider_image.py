@@ -1,10 +1,14 @@
 import os
 import time
+from datetime import date
 
 import requests
 
-text_path = 'data/text'
+today = date.today().strftime("%Y-%m-%d")
+text_path = f'data/text/{today}'
+# text_path = f'data/text'
 img_path = 'data/image'
+
 for root, dirs, files in os.walk(text_path):
     for name in files:
         pid = name.split('.')[0]
