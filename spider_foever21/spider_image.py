@@ -6,6 +6,7 @@ import requests
 
 today = date.today().strftime("%Y-%m-%d")
 text_path = f'data/text/{today}'
+# text_path = f'data/text/2021-05-25'
 # text_path = f'data/text'
 img_path = 'data/image'
 
@@ -15,8 +16,11 @@ for root, dirs, files in os.walk(text_path):
         current_path = os.path.join(img_path, pid)
         current_text = os.path.join(root, name)
 
-        with open(current_text, 'r', encoding='utf8') as f:
-            attri_dic = eval(f.read())
+        try:
+            with open(current_text, 'r', encoding='utf8') as f:
+                attri_dic = eval(f.read())
+        except:
+            continue
 
         if (not os.path.exists(current_path)) and ('img_URL' in attri_dic.keys()):
             print("Work on {}".format(pid))

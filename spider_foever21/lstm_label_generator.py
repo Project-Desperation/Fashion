@@ -22,8 +22,8 @@ def dict_to_string(dic):
 
 root_dir = 'data/text'
 
-if os.path.exists('lstm_labels.txt'):
-    with open('lstm_labels.txt', 'r') as f:
+if os.path.exists('data/lstm_labels.txt'):
+    with open('data/lstm_labels.txt', 'r') as f:
         exist_labels = f.read()
 else:
     exist_labels = ''
@@ -42,5 +42,5 @@ for day in sorted(os.listdir(root_dir)):
                 if anno in text:
                     tmp[anno] = tmp[anno] + 1
     print(f'day: {day}, statistics: {tmp}')
-    with open('lstm_labels.txt', 'a') as a:
+    with open('data/lstm_labels.txt', 'a') as a:
         a.write(f'{day}: {dict_to_string(tmp)}\n')

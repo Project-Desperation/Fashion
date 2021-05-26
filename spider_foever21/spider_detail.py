@@ -10,8 +10,9 @@ from selenium import webdriver
 browser = webdriver.Chrome()
 
 today = date.today().strftime("%Y-%m-%d")
-# today = '2021-05-14'
+# today = '2021-05-20'
 data_dir = f'data'
+update_first_appearance = True
 
 with open(os.path.join(data_dir, f'index/{today}.txt'), 'r') as f:
     data_pid = eval(f.read())
@@ -72,7 +73,9 @@ for key in data_pid.keys():
                     for section in sections:
                         section_key = section.h3.text.strip('\n')
                         if section_key not in attr_dic.keys():
-                            if section.div.p:
+                            if section_key == 'Details':
+                                attr_dic[section_key] = section.div.text.strip('\n')
+                            elif section.div.p:
                                 attr_dic[section_key] = []
                                 for para in section.div.find_all('p'):
                                     attr_dic[section_key].append(para.text.strip('\n'))
@@ -111,18 +114,28 @@ for key in data_pid.keys():
                 f.write(str(attr_dic))
                 f.close()
 
+    print("Finished {}! failure: {}".format(key, failure))
 # ----------------------------------------------------------------------------------------------------------------------
 # update first_appearance
-first_appearance_path = os.path.join(data_dir, 'first_appearance.txt')
+if update_first_appearance:
+    print("update first_appearance")
+    first_appearance_path = os.path.join(data_dir, 'first_appearance.txt')
 
-with open(first_appearance_path, 'r') as f:
-    first_appearance = eval(f.read())
+    with open(first_appearance_path, 'r') as f:
+        first_appearance = eval(f.read())
 
-for root, dirs, files in os.walk(os.path.join(data_dir, 'text', today)):
-    for file in files:
-        pid = file.split('.')[0]
-        if pid not in first_appearance.keys():
-            first_appearance[pid] = today
+    count = 0
+    for root, dirs, files in os.walk(os.path.join(data_dir, 'text', today)):
+        for file in files:
+            pid = file.split('.')[0]
+            if pid not in first_appearance.keys():
+                first_appearance[pid] = today
+                count += 1
 
-with open(first_appearance_path, 'w') as f:
-    f.write(str(first_appearance))
+    with open(first_appearance_path, 'w') as f:
+        f.write(str(first_appearance))
+
+    print("first_appearance updated! added {} new goods".format(count))
+
+# ----------------------------------------------------------------------------------------------------------------------
+print("work done!")
