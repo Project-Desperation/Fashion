@@ -107,5 +107,5 @@ class Analyzer:
 # ----------------------------------------------------------------------------------------------------------------------
 # top_k_generator = TopKGenerator(input_path, attributes)
 self = Analyzer(data_path, attributes)
-test = self.get_newly_released('2021-05-01', 'daily', 10)
+test = self.get_newly_released('2021-05-21', 'daily', 0)
 print(test)
