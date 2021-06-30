@@ -43,47 +43,19 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil import parser
 from copy import copy
-import pymongo
 
 
 class Analyzer:
     def __init__(self, data_path, attributes):
         super().__init__()
-        self.db = pymongo.MongoClient("mongodb://qyli:qyli2233@127.0.0.1:2233/admin")
         self.data_path = data_path
         self.attributes = attributes
 
-    @staticmethod
-    def get_lstm_data(attributes):
-        db = pymongo.MongoClient("mongodb://qyli:qyli2233@127.0.0.1:2233/admin")
-        lstm_labels = db.fashion.lstm_labels
-        attr_selector = {}
-        for attribute in attributes:
-            attr_selector[attribute] = 1
-        attr_selector['_id'] = 0
-        lstm_labels = lstm_labels.find({}, attr_selector)
-        raw_data = []
-        for i in lstm_labels:
-            item = Series(i).loc[attributes]
-            raw_data.append(item.values)
-        all_data = np.array(raw_data, dtype='float32').T
-        return all_data
-
-        # raw_data = []
-        # with open(input_path, 'r') as f:
-        #     lines = f.readlines()[:120]
-        #     for line in lines:
-        #         attrs_num = line.rstrip().split(': ')[1].split(' ')
-        #         atrrs_num = [int(x) for x in attrs_num]
-        #         raw_data.append(attrs_num)
-        # all_data = np.array(raw_data, dtype='float32')
-        # all_data = all_data.T
-
-    @staticmethod
-    def get_date_list(start_date, mode='daily', step=1):
+    def get_newly_released(self, start_date, mode, step):
+        """
+        获取某个时间段内新发售商品的数据
+        """
         if mode == 'daily':
-            if step >= 1:
-                step -= 1
             start_date = parser.parse(start_date)
             end_date = start_date + relativedelta(days=step)
         elif mode == 'monthly':
@@ -98,62 +70,37 @@ class Analyzer:
         else:
             raise ValueError("_(:3 」∠)_")
 
-        return start_date, end_date
+        date_list = []
+        today = start_date
+        while today <= end_date:
+            date_list.append(today.strftime('%Y-%m-%d'))
+            today += relativedelta(days=1)
 
-    def attribute_counter(self, goods):
-        count_result = {}
-        for attr in self.attributes:
-            count_result[attr] = 0
+        with open(os.path.join(self.data_path, 'first_appearance.txt'), 'r') as f:
+            first_appearance = Series(eval(f.read()))
 
-        for detail in goods:
+        newly_released_attr_dic = {}
+        for attr in attributes:
+            newly_released_attr_dic[attr] = 0
 
-            description = ''
-            for key in ['name', 'Content + Care', 'Details']:
-                if key in detail.keys():
-                    description = ' '.join([description, str(detail[key])])
+        for date in date_list:
+            pids = first_appearance[first_appearance.values == date].index
+            for root, dirs, files in os.walk(os.path.join(self.data_path, f'text/{date}')):
+                for filename in files:
+                    if filename[:-4] in pids:
+                        with open(os.path.join(root, filename), 'r', encoding='utf8') as f:
+                            detail = eval(f.read())
 
-            for attr in self.attributes:
-                if attr in description:
-                    count_result[attr] += 1
+                        description = ''
+                        for key in ['name', 'details', 'Details']:
+                            if key in detail.keys():
+                                description = ' '.join([description, str(detail[key])])
 
-        return count_result
-
-    def get_newly_released(self, start_date, mode='daily', step=1):
-        """
-        获取某个时间段内新发售商品的数据
-        """
-        start_date, end_date = self.get_date_list(start_date, mode, step)
-        print("start_date: {}, end_date: {}.".format(start_date, end_date))
-        goods_info = self.db.fashion.goods_info
-        goods = goods_info.find({'first_appearance': {'$gte': start_date, '$lte': end_date}})
-
-        newly_released_attr_dic = self.attribute_counter(goods)
+                        for attr in self.attributes:
+                            if attr in description:
+                                newly_released_attr_dic[attr] += 1
 
         return newly_released_attr_dic
-
-    def get_newly_released_relative(self, start_date, mode='monthly', step=1):
-        date_list = self.get_date_list(start_date, mode, step)
-        newly_released_attr_dic = self.get_newly_released(date_list)
-
-        goods = set()
-        for date in date_list:
-            if not os.path.exists(os.path.join(self.data_path, f'text/{date}')):
-                raise ValueError('Missing {}'.format(os.path.join(self.data_path, f'text/{date}')))
-            for root, dirs, files in os.walk(os.path.join(self.data_path, f'text/{date}')):
-                for file in files:
-                    goods.add(file)
-
-        total_attr_dic = self.attribute_counter(goods)
-
-        newly_released_relative = {}
-        for key in newly_released_attr_dic.keys():
-            if total_attr_dic[key] != 0:
-                newly_released_relative[key] = newly_released_attr_dic[key] / total_attr_dic[key]
-            else:
-                newly_released_relative[key] = 0
-
-        return newly_released_relative
-
 
 # ----------------------------------------------------------------------------------------------------------------------
 # LSTM预测
@@ -229,6 +176,7 @@ class DynamicPredictor():
         # self.append_predict(self.trend_norm[-self.DAYS_FOR_TRAIN:])
         self.predict()
 
+
     def predict(self):
         data = []
         for i in range(len(self.trend_norm) - self.DAYS_FOR_TRAIN + 1):
@@ -268,10 +216,7 @@ class DynamicPredictor():
         # plt.savefig("static/img/test_prediction.jpg", bbox_inches='tight')  # 【修改此处以控制plt的输出位置】
         # # plt.show()  # 【修改此处以控制plt的输出位置】
         start_time = self.today - timedelta(days=trend_len - 1)
-        res = {
-            'today': [int(self.today.strftime('%Y')), int(self.today.strftime('%m')), int(self.today.strftime('%d'))],
-            'start': [int(start_time.strftime('%Y')), int(start_time.strftime('%m')), int(start_time.strftime('%d'))],
-            'trend': self.trend_norm[-trend_len:], 'predict': predict_data}
+        res = {'today':[int(self.today.strftime('%Y')), int(self.today.strftime('%m')), int(self.today.strftime('%d'))], 'start':[int(start_time.strftime('%Y')), int(start_time.strftime('%m')),int(start_time.strftime('%d'))], 'trend': self.trend_norm[-trend_len:], 'predict' : predict_data}
         return res
 
     def plot_validation(self, loss_function=torch.nn.MSELoss()):
@@ -311,12 +256,9 @@ class DynamicPredictor():
         # # plt.show()  # 【修改此处以控制plt的输出位置】
 
         start_time = self.today - timedelta(days=len(self.trend_norm) - 1)
-        res = {
-            'today': [int(self.today.strftime('%Y')), int(self.today.strftime('%m')), int(self.today.strftime('%d'))],
-            'start': [int(start_time.strftime('%Y')), int(start_time.strftime('%m')), int(start_time.strftime('%d'))],
-            'loss': float(loss), 'data': data_to_plot}
+        res = {'today':[int(self.today.strftime('%Y')), int(self.today.strftime('%m')), int(self.today.strftime('%d'))], 'start':[int(start_time.strftime('%Y')), int(start_time.strftime('%m')), int(start_time.strftime('%d'))], 'loss' : float(loss), 'data' : data_to_plot }
         print(res)
-        # return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), loss, data_to_plot
+        #return self.today.strftime('%Y %m %d'), start_time.strftime('%Y %m %d'), loss, data_to_plot
         return res
 
     # top-K 条形图
@@ -325,7 +267,7 @@ class DynamicPredictor():
         raw_recovered = []
         for r in self.predict_data[-self.DAYS_TO_PREDICT:]:
             avg = np.array(tmp_raw[-self.DAYS_LOOK_BACK]).mean()
-            raw_recovered.append(avg * (1 + r))
+            raw_recovered.append(avg*(1+r))
             tmp_raw.append(raw_recovered[-1])
         return raw_recovered
 
@@ -335,6 +277,7 @@ class DynamicPredictor():
             raise ValueError("属性{}的模型预测天数（{}天）不足以支持{}日图表！".format(self.attribute_name, len(raw_recovered),
                                                                   days_to_compare))
         return np.array(raw_recovered[:days_to_compare]).sum() / np.array(self.raw_data[-days_to_compare:]).sum() - 1
+
 
 
 class Multi_Block(nn.HybridBlock):
@@ -358,8 +301,7 @@ class Multi_Block(nn.HybridBlock):
 
 
 testing_threshold = 0.6
-thing_classes = ['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest', 'sling',
-                 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress', 'sling dress']
+thing_classes = ['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest','sling', 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress','sling dress']
 DAYS_FOR_TRAIN = 10
 DAYS_TO_PREDICT = 7
 NUM_LAYERS = 2
@@ -373,50 +315,53 @@ attributes = ['floral', 'striped', 'plaid', 'leopard', 'camo', 'graphic',
               'denim', 'knit', 'faux leather', 'cotton', 'chiffon', 'satin',
               'mesh', 'ruched', 'cutout', 'lace', 'frayed', 'wrap',
               'tropical', 'peasant', 'swim', 'bikini', 'active', 'cargo']
-table = {'花卉': 'floral', '条纹': 'striped', '格子': 'plaid', '豹纹': 'leopard', '迷彩': 'camo', '图形': 'graphic',
-         '圆领': 'crew neck', '方领': 'square neck', 'V领': 'v-neck',
-         '长裙': 'maxi dress', '七分裙': 'midi dress', '短裙': 'mini dress',
-         '牛仔布料': 'denim', '编织品': 'knit', '人造皮': 'faux leather', '棉': 'cotton', '薄纱布': 'chiffon', '缎料': 'satin',
-         '网眼式': 'mesh', '带褶皱': 'ruched', '镂空': 'cutout', '带蕾丝花边': 'lace', '有磨损的': 'frayed', '裹身式': 'wrap',
-         '热带的': 'tropical', '传统式样的': 'peasant', '泳装': 'swim', '比基尼': 'bikini', '运动系': 'active', '工装': 'cargo'}
-table1 = {y: x for x, y in table.items()}
+table = {'花卉':'floral', '条纹':'striped', '格子' : 'plaid', '豹纹':'leopard', '迷彩':'camo', '图形':'graphic',
+              '圆领':'crew neck', '方领':'square neck', 'V领':'v-neck',
+              '长裙':'maxi dress', '七分裙':'midi dress', '短裙':'mini dress',
+              '牛仔布料':'denim', '编织品':'knit', '人造皮':'faux leather', '棉':'cotton', '薄纱布':'chiffon', '缎料':'satin',
+              '网眼式':'mesh', '带褶皱':'ruched', '镂空':'cutout', '带蕾丝花边':'lace', '有磨损的':'frayed', '裹身式':'wrap',
+              '热带的':'tropical', '传统式样的':'peasant', '泳装':'swim', '比基尼':'bikini', '运动系':'active', '工装':'cargo'}
+table1 = {y : x for x, y in table.items()}
 data_path = 'data'
-
-all_data = Analyzer.get_lstm_data(attributes)
+raw_data = []
+with open(input_path, 'r') as f:
+    lines = f.readlines()[:120]
+    for line in lines:
+        attrs_num = line.rstrip().split(': ')[1].split(' ')
+        atrrs_num = [int(x) for x in attrs_num]
+        raw_data.append(attrs_num)
+all_data = np.array(raw_data, dtype='float32')
+all_data = all_data.T
 predictor_dict = {}
 for index in range(len(attributes)):
     predictor_dict[attributes[index]] = DynamicPredictor(DAYS_FOR_TRAIN, DAYS_TO_PREDICT, DAYS_LOOK_BACK, PATH,
                                                          attributes[index],
                                                          all_data[index].tolist()[:DAYS_FOR_TRAIN + DAYS_LOOK_BACK],
-                                                         "2021-04-14")
+                                                         "2020-06-18")
 plt.style.use('ggplot')
 print(predictor_dict['floral'].today)
 
+
 app = Flask(__name__)
-
-
 @app.route('/')
 def index():
     return render_template("hello.html")
-
 
 @app.route('/lstm')
 def _lstm():
     return render_template("lstm.html")
 
-
 @app.route('/topk')
 def topk():
     return render_template("topk.html")
 
-
 @app.route('/plottopk')
 def plottopk():
-    year = request.args.get("year")
+    year  = request.args.get("year")
     month = request.args.get("month")
-    day = request.args.get("day")
-    mode = request.args.get("mode")
-    step = request.args.get("step")
+    day   = request.args.get("day")
+    mode  = request.args.get("mode")
+    step  = request.args.get("step")
     if mode == '天':
         mode = 'daily'
     else:
@@ -436,7 +381,6 @@ def plottopk():
             res.append(dd)
     return jsonify(res)
 
-
 @app.route('/update')
 def _update():
     # 【动态推演，每次增加一天的数据并进行绘图】
@@ -450,7 +394,6 @@ def _update():
     # _plot()
     return ''
 
-
 @app.route('/plot')
 def _plot():
     global predictor_dict, all_data, attributes;
@@ -458,12 +401,11 @@ def _plot():
     material = request.args.get("material")
     material = table[material]
     if state == "predict":
-        res = predictor_dict[material].plot_prediction(trend_len=min(len(predictor_dict[material].trend_data), 15))
+        res  = predictor_dict[material].plot_prediction(trend_len=min(len(predictor_dict[material].trend_data), 15)) 
     else:
-        res = predictor_dict[material].plot_validation()
+        res  = predictor_dict[material].plot_validation()
     print('plot {} {} finished. today: {}'.format(material, state, predictor_dict[material].today))
     return jsonify(res)
-
 
 @app.route('/photo', methods=['POST'])
 def photo():
@@ -472,10 +414,9 @@ def photo():
     url = idict['url']
     DatasetCatalog.clear()
     DatasetCatalog.register('fashion2_pre', lambda x: x * x)
-    MetadataCatalog.get('fashion2_pre').set(
-        thing_classes=thing_classes)  # ['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest','sling', 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress','sling dress'])
+    MetadataCatalog.get('fashion2_pre').set(thing_classes = thing_classes)  # ['short sleeve top', 'long sleeve top', 'short sleeve outwear', 'long sleeve outwear', 'vest','sling', 'shorts', 'trousers', 'skirt', 'short sleeve dress', 'long sleeve dress', 'vest dress','sling dress'])
     fashion2_metadata = MetadataCatalog.get('fashion2_pre')
-    # print(fashion2_metadata)
+    #print(fashion2_metadata)
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
     # cfg.DATASETS.TRAIN = ("train",)
@@ -489,26 +430,27 @@ def photo():
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 13
 
     cfg.MODEL.WEIGHTS = os.path.join("mask_rcnn_deepfashion_pretrain.pth")  # path to the model we just trained
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = testing_threshold  # set a custom testing threshold
-    predictor = DefaultPredictor(cfg)
-    # resp = urllib.urlopen(url)
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = testing_threshold   # set a custom testing threshold
+    predictor = DefaultPredictor(cfg)    
+    #resp = urllib.urlopen(url)
     resp = requests.get(url)
     print(url)
-    # im = np.asarray(bytearray(resp.read()), dtype="uint8")
+    #im = np.asarray(bytearray(resp.read()), dtype="uint8")
     with open('static/target_img.jpg', 'wb') as f:
-        f.write(resp.content)
+    	f.write(resp.content)
+
 
     im = cv2.imread("static/target_img.jpg")
     mx_im = mx.image.imread("static/target_img.jpg")
     # get local image
     # im = cv2.imread("bbox_test/7000.jpg")
     outputs = predictor(im)
-    #    v = Visualizer(im[:, :, ::-1],
-    # metadata=fashion2_metadata,
-    # scale=0.5,
-    #    )
-    #    out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-    #    cv2.imwrite("static/test_boxed.jpg", out.get_image()[:, :, ::-1])
+ #    v = Visualizer(im[:, :, ::-1],
+	# metadata=fashion2_metadata,
+	# scale=0.5,
+ #    )
+ #    out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+ #    cv2.imwrite("static/test_boxed.jpg", out.get_image()[:, :, ::-1])
 
     pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().detach().numpy()  # Each row is (x1, y1, x2, y2)
     scores = outputs["instances"].scores.cpu().detach().numpy()
@@ -521,21 +463,21 @@ def photo():
         crop = mx_im[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
         crops.append(crop)
 
+    
     def transform(data):
         im = data.astype('float32') / 255
-        auglist = image.CreateAugmenter(data_shape=(3, 224, 224), resize=256, mean=np.array([0.485, 0.456, 0.406]),
-                                        std=np.array([0.229, 0.224, 0.225]))
+        auglist = image.CreateAugmenter(data_shape=(3, 224, 224), resize=256,mean=np.array([0.485, 0.456, 0.406]), std=np.array([0.229, 0.224, 0.225]))
         for aug in auglist:
             im = aug(im)
         im = nd.transpose(im, (2, 0, 1))
         return im
 
-    material = [['', '花卉', '条纹', '格子', '豹纹', '迷彩', '图形'],
-                ['', '圆领', '方领', 'V领'],
-                ['', '长裙', '七分裙', '短裙'],
-                ['', '牛仔布料', '编织品', '人造皮', '棉', '薄纱布', '缎料'],
-                ['', '网眼式', '带褶皱', '镂空', '带蕾丝花边', '有磨损的', '裹身式'],
-                ['', '热带的', '传统式样的', '泳装', '比基尼', '运动系', '工装']];
+    material = [['','花卉','条纹','格子','豹纹','迷彩','图形'], 
+	['', '圆领', '方领', 'V领'],
+	['', '长裙', '七分裙', '短裙'],
+	['', '牛仔布料', '编织品', '人造皮', '棉', '薄纱布', '缎料'],
+	['', '网眼式', '带褶皱', '镂空', '带蕾丝花边', '有磨损的', '裹身式'],
+	['', '热带的', '传统式样的', '泳装', '比基尼', '运动系', '工装']];
     ctx = [mx.gpu(0)]
     pretrain_model = models.resnet50_v2(pretrained=True, root='model')
     finetune_net = models.resnet50_v2(classes=2048)
@@ -545,7 +487,7 @@ def photo():
 
     net = nn.HybridSequential()
     net.add(finetune_net, nn.Dropout(0.5), multi_clas)
-    net[2].initialize(init.Xavier())  # ctx=ctx
+    net[2].initialize(init.Xavier()) # ctx=ctx
     # net.collect_params().reset_ctx(ctx)
     net.hybridize()
     net.load_parameters('pretrain_epoch_10.params')
@@ -561,25 +503,21 @@ def photo():
             result.append(int(np.argmax(np.array(cata))))
         attr_predicts.append(result)
 
-    res = {'box': pred_boxes.tolist(), 'scores': scores.tolist(),
-           'pred': pred_classes, 'attr': attr_predicts}
+    res = {'box' : pred_boxes.tolist(), 'scores' : scores.tolist(), 
+    'pred' : pred_classes, 'attr' : attr_predicts}
     return jsonify(res)
-
 
 @app.route('/test')
 def _test():
-    # return render_template("test.html")
-    return jsonify([1, 2, 3, 4, 5, 6, 7])
-
+    #return render_template("test.html")
+    return jsonify([1,2,3,4,5,6,7])
 
 @app.route('/array')
 def _array():
     return render_template("array.html")
 
-
 if __name__ == '__main__':
     from werkzeug.contrib.fixers import ProxyFix
-
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.wsgi_app = ProxyFix(app.wsgi_app)

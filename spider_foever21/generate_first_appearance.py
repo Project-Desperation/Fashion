@@ -3,7 +3,7 @@ from datetime import timedelta
 from dateutil import parser
 
 root_dir = 'data/text'
-start_date = '2021-04-20'
+start_date = '2021-04-14'
 
 today = parser.parse(start_date)
 current_path = os.path.join(root_dir, today.strftime('%Y-%m-%d'))
