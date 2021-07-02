@@ -6,7 +6,7 @@ import requests
 
 today = date.today().strftime("%Y-%m-%d")
 text_path = f'data/text/{today}'
-# text_path = f'data/text/2021-06-15'
+# text_path = f'data/text/2021-06-30'
 # text_path = f'data/text'
 img_path = 'data/image'
 

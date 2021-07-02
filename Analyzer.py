@@ -1,6 +1,7 @@
 import os
 # from datetime import timedelta
 import pymongo
+import datetime
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
 import numpy as np
@@ -9,16 +10,17 @@ from pandas import DataFrame, Series
 
 # ----------------------------------------------------------------------------------------------------------------------
 # newly released analysis
+# 202.120.37.116
 class Analyzer:
     def __init__(self, data_path, attributes):
         super().__init__()
-        self.db = pymongo.MongoClient("mongodb://qyli:qyli2233@127.0.0.1:2233/admin")
+        self.db = pymongo.MongoClient("mongodb://qyli:qyli2233@202.120.37.116:2233/admin")
         self.data_path = data_path
         self.attributes = attributes
 
     @staticmethod
     def get_lstm_data(attributes):
-        db = pymongo.MongoClient("mongodb://qyli:qyli2233@127.0.0.1:2233/admin")
+        db = pymongo.MongoClient("mongodb://qyli:qyli2233@202.120.37.116:2233/admin")
         lstm_labels = db.fashion.lstm_labels
         attr_selector = {}
         for attribute in attributes:
@@ -117,8 +119,26 @@ class Analyzer:
 
         return newly_released_relative
 
+    def calculate_ma(self, days, date=None):
+        if not date:
+            end_time = parser.parse(datetime.datetime.today().strftime("%Y-%m-%d"))
+        elif isinstance(date, str):
+            end_time = parser.parse(date)
+        else:
+            end_time = date
+        start_time = end_time - relativedelta(days=days)
+        goods_info = self.db.fashion.goods_info
+        goods = goods_info.find({'first_appearance': {'$gt': start_time, '$lte': end_time}}, {'_id': 0, 'attributes': 1})
+        results = None
+        for good in goods:
+            if not isinstance(results, Series):
+                results = Series(good['attributes'])
+            else:
+                results += Series(good['attributes'])
+        results /= days
+        return results
 
-# ----------------------------------------------------------------------------------------------------------------------
+
 if __name__ == '__main__':
     input_path = 'data/lstm-label.txt'
     attributes = ['floral', 'striped', 'plaid', 'leopard', 'camo', 'graphic',
@@ -131,7 +151,8 @@ if __name__ == '__main__':
     data_path = 'spider_foever21/data'
 
     self = Analyzer(data_path, attributes)
-    test = self.get_newly_released('2021-05-01', 'monthly', 1)
+    # test = self.get_newly_released('2021-05-01', 'monthly', 1)
+    test = self.calculate_ma(60)
     print(test)
 
 # ----------------------------------------------------------------------------------------------------------------------

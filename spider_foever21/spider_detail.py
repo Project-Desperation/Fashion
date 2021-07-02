@@ -189,9 +189,27 @@ def update_mongo(index_path, text_path, today):
                 attrs = {'_id': pid, 'first_appearance': today}
                 with open(os.path.join(root, file), 'r', encoding='utf8') as f:
                     raw_attrs = eval(f.read())
+                description = ''
                 for valid_key in valid_keys:
                     if valid_key in raw_attrs.keys():
                         attrs[valid_key] = raw_attrs[valid_key]
+                        if valid_key in ['name', 'Content + Care', 'Details']:
+                            description = ' '.join([description, str(raw_attrs[valid_key])])
+
+                anno_dict = {
+                    'floral': 0, 'striped': 0, 'plaid': 0, 'leopard': 0, 'camo': 0,
+                    'graphic': 0, 'crew neck': 0, 'square neck': 0,
+                    'v-neck': 0, 'maxi dress': 0, 'midi dress': 0, 'mini dress': 0, 'denim': 0,
+                    'knit': 0, 'faux leather': 0,
+                    'cotton': 0, 'chiffon': 0, 'satin': 0, 'mesh': 0, 'ruched': 0, 'cutout': 0,
+                    'lace': 0, 'frayed': 0, 'wrap': 0,
+                    'tropical': 0, 'peasant': 0, 'swim': 0, 'bikini': 0, 'active': 0, 'cargo': 0
+                }
+                for anno in anno_dict.keys():
+                    if anno in description:
+                        anno_dict[anno] = 1
+                attrs['attributes'] = anno_dict
+
                 goods_info.insert_one(attrs)
                 count += 1
     print("Added {} new goods.".format(count))

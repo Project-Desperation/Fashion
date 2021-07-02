@@ -5,6 +5,22 @@ import json
 
 myclient = pymongo.MongoClient("mongodb://qyli:qyli2233@202.120.37.116:2233/admin")
 
+goods_info = myclient.fashion.goods_info
+goods = goods_info.find({}, {'_id': 1, 'name': 1, 'Details': 1, 'Content + Care': 1})
+for good in goods:
+    pid = good['_id']
+    detail = ' '.join([str(i).lower() for i in good.values()])
+    anno_dict = {
+        'floral': 0, 'striped': 0, 'plaid': 0, 'leopard': 0, 'camo': 0, 'graphic': 0, 'crew neck': 0, 'square neck': 0,
+        'v-neck': 0, 'maxi dress': 0, 'midi dress': 0, 'mini dress': 0, 'denim': 0, 'knit': 0, 'faux leather': 0,
+        'cotton': 0, 'chiffon': 0, 'satin': 0, 'mesh': 0, 'ruched': 0, 'cutout': 0, 'lace': 0, 'frayed': 0, 'wrap': 0,
+        'tropical': 0, 'peasant': 0, 'swim': 0, 'bikini': 0, 'active': 0, 'cargo': 0
+    }
+    for anno in anno_dict.keys():
+        if anno in detail:
+            anno_dict[anno] = 1
+    goods_info.update_one({'_id': pid}, {'$set': {'attributes': anno_dict}})
+
 
 def generate_goods_info(myclient):
     goods_info = myclient.fashion.goods_info
