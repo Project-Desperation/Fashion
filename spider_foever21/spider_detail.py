@@ -194,7 +194,7 @@ def update_mongo(index_path, text_path, today):
                     if valid_key in raw_attrs.keys():
                         attrs[valid_key] = raw_attrs[valid_key]
                         if valid_key in ['name', 'Content + Care', 'Details']:
-                            description = ' '.join([description, str(raw_attrs[valid_key])])
+                            description = ' '.join([description, str(raw_attrs[valid_key]).lower()])
 
                 anno_dict = {
                     'floral': 0, 'striped': 0, 'plaid': 0, 'leopard': 0, 'camo': 0,

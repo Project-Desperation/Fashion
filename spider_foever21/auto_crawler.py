@@ -37,3 +37,4 @@ while True:
         # image
         with open('spider_image.py', 'r', encoding='utf8') as f:
             exec(f.read())
+    # break

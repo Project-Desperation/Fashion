@@ -119,24 +119,50 @@ class Analyzer:
 
         return newly_released_relative
 
-    def calculate_ma(self, days, date=None):
+    def calculate_ma(self, short_term, long_term, date=None, mode='total'):
         if not date:
             end_time = parser.parse(datetime.datetime.today().strftime("%Y-%m-%d"))
         elif isinstance(date, str):
             end_time = parser.parse(date)
         else:
             end_time = date
-        start_time = end_time - relativedelta(days=days)
-        goods_info = self.db.fashion.goods_info
-        goods = goods_info.find({'first_appearance': {'$gt': start_time, '$lte': end_time}}, {'_id': 0, 'attributes': 1})
-        results = None
-        for good in goods:
-            if not isinstance(results, Series):
-                results = Series(good['attributes'])
-            else:
-                results += Series(good['attributes'])
-        results /= days
-        return results
+        start_time = end_time - relativedelta(days=long_term)
+        short_start_time = end_time - relativedelta(days=short_term)
+        long_ma = None
+        short_ma = None
+
+        # 全量双均线
+        if mode =='total':
+            lstm_labels = self.db.fashion.lstm_labels
+            labels = lstm_labels.find({'_id': {'$gt': start_time, '$lte': end_time}})
+            for label in labels:
+                record_date = label.pop('_id')
+                if not isinstance(long_ma, Series):
+                    long_ma = Series(label)
+                else:
+                    long_ma += Series(label)
+                if record_date > short_start_time:
+                    if not isinstance(short_ma, Series):
+                        short_ma = Series(label)
+                    else:
+                        short_ma += Series(label)
+            return short_ma / short_term, long_ma / long_term
+
+        # 增量双均线
+        elif mode == 'increment':
+            goods_info = self.db.fashion.goods_info
+            goods = goods_info.find({'first_appearance': {'$gt': start_time, '$lte': end_time}},
+                                    {'_id': 0, 'first_appearance': 1, 'attributes': 1})
+
+            for good in goods:
+                if not isinstance(long_ma, Series):
+                    long_ma = Series(good['attributes'])
+                else:
+                    long_ma += Series(good['attributes'])
+            long_ma /= long_term
+            return long_ma
+        else:
+            pass
 
 
 if __name__ == '__main__':
@@ -152,8 +178,8 @@ if __name__ == '__main__':
 
     self = Analyzer(data_path, attributes)
     # test = self.get_newly_released('2021-05-01', 'monthly', 1)
-    test = self.calculate_ma(60)
-    print(test)
+    short_ma, long_ma = self.calculate_ma(5, 10)
+    print(short_ma, long_ma)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # class TopKGenerator():
